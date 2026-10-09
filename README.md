@@ -42,8 +42,8 @@ register_toolchains("@nvc_prebuilt//:toolchain")
 
 A toolchain the root module registers takes precedence over the one rules_nvc
 registers, so nothing else changes: the rules are still rules_nvc's, and only
-where NVC comes from is different. This needs a rules_nvc whose toolchain type
-other modules may use: the release after 4.6.0.
+where NVC comes from is different. This needs rules_nvc 4.7.0 or newer, the
+first whose toolchain type other modules may use.
 
 To pick a published version other than the default:
 

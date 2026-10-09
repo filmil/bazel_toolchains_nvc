@@ -22,5 +22,5 @@ use_repo(nvc_binary, "nvc_prebuilt")
 
 register_toolchains("@nvc_prebuilt//:toolchain")
 
-bazel_dep(name = "rules_nvc", version = "4.6.0")
+bazel_dep(name = "rules_nvc", version = "4.7.0")
 bazel_dep(name = "bazel_skylib", version = "1.9.2")
