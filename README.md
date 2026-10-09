@@ -83,8 +83,14 @@ It is built in an Ubuntu 20.04 container for that reason.
    checks the binary before it is published: that it needs only the C
    library, that it reports LLVM, and that it simulates a design.
 3. Copy the checksum from the release notes into `nvc/versions.bzl`.
-4. Release the module with a `v<version>` tag, which publishes it to
-   filmil/bazel-registry.
+4. Release the module with a `v<version>` tag. Then publish it to
+   filmil/bazel-registry by hand: a release that a workflow makes does not
+   start other workflows, so the publication does not start by itself.
+
+        gh workflow run publish.yml -R filmil/bazel_toolchains_nvc \
+            -f tag_name=v<version>
+
+   It opens a pull request in filmil/bazel-registry; merge it.
 
 To build the same tarball locally:
 
