@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_nvc//build/nvc:rules.bzl", "vhdl_test")
+
+# The binary, asked what it is. It must run, and it must have LLVM: an
+# NVC without LLVM is what rules_nvc builds already.
+genrule(
+    name = "version",
+    outs = ["version.txt"],
+    cmd = "$(location @nvc_prebuilt//:nvc) --version | grep -o 'Using LLVM' | tr -d '\n' > $@",
+    tools = ["@nvc_prebuilt//:nvc"],
+)
+
+write_file(
+    name = "expected",
+    out = "expected.txt",
+    content = ["Using LLVM"],
+)
+
+diff_test(
+    name = "nvc_has_llvm_test",
+    file1 = ":version",
+    file2 = ":expected",
+)
+
+# rules_nvc analyzes, elaborates and runs a design with the toolchain.
+vhdl_test(
+    name = "prebuilt",
+    srcs = ["prebuilt_tb.vhdl"],
+    deps = [],
+    entity = "prebuilt_tb",
+)

@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+"""What the registry runs to decide this module works.
+
+It asks whether a consumer that names this module gets an NVC that
+rules_nvc runs, without building NVC from source. The three statements
+below the override are also all that a consumer writes.
+"""
+
+module(name = "integration")
+
+bazel_dep(name = "bazel_toolchains_nvc", version = "0.1.0")
+local_path_override(
+    module_name = "bazel_toolchains_nvc",
+    path = "..",
+)
+
+nvc_binary = use_extension(
+    "@bazel_toolchains_nvc//nvc:extension.bzl",
+    "nvc_binary",
+)
+use_repo(nvc_binary, "nvc_prebuilt")
+
+register_toolchains("@nvc_prebuilt//:toolchain")
+
+bazel_dep(name = "rules_nvc", version = "4.6.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.2")

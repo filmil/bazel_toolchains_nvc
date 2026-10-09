@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Publish to my Bazel registry, the same way the other rulesets here do.
+name: "Publish to my Bazel registry"
+
+# A module tag publishes the module. The binary tags, `nvc-*`,
+# do not: they carry an artifact rather than a module version.
+#
+# The trigger is the release rather than the tag push. Both workflows
+# start on a tag, and this one used to beat the other to it and fail
+# looking for a source archive that had not been uploaded yet.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to publish"
+        required: true
+        type: string
+
+jobs:
+  publish:
+    # A binary release is not a module release.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'v0') ||
+      startsWith(github.event.release.tag_name, 'v1')
+    uses: "bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.0.0"
+    with:
+      tag_name: ${{ inputs.tag_name || github.event.release.tag_name }}
+      # Not the central registry: this module hands out a binary built
+      # from someone else's source, which is a thing to keep close to
+      # home rather than to offer the world.
+      registry: filmil/bazel-registry
+      registry_fork: filmil/bazel-registry
+      attest: false
+      draft: false
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    secrets:
+      publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}

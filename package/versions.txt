@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The NVC versions this repository builds: one per line, as
+#
+#   <version> <NVC commit> <LLVM version>
+#
+# <version> names the release, `nvc-<version>`, and the entry in
+# `nvc/versions.bzl`. The commit is in https://github.com/nickg/nvc. The
+# LLVM is an official release of https://github.com/llvm/llvm-project.
+#
+# 1.22.0-324ed157 is the commit of the `nvc` module 1.22.0.bcr.0 in
+# filmil/bazel-registry, which rules_nvc resolves.
+1.22.0-324ed157 324ed157094c6426bceb0db2594ea9ce07a1a1c7 18.1.8

@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Build NVC once, here, and publish the binary beside the module.
+#
+# A tag `nvc-<version>` builds NVC with LLVM, in an Ubuntu 20.04
+# container so that the binary runs on glibc 2.31 and newer, and
+# releases two assets: the binary and the NVC source it came from. NVC
+# is GPL-3.0, so the source goes out with every binary.
+#
+# A tag `v<version>` releases this module's own source, which the
+# registry points at.
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]*", "nvc-*"]
+  workflow_dispatch:
+    inputs:
+      nvc_version:
+        description: "NVC version, a line of package/versions.txt"
+        required: true
+        default: "1.22.0-324ed157"
+
+permissions:
+  contents: write
+
+jobs:
+  nvc:
+    if: startsWith(github.ref, 'refs/tags/nvc-') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Say which NVC this is
+        id: version
+        run: |
+          set -o errexit -o nounset -o pipefail
+          if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/nvc-}" ]; then
+            version="${GITHUB_REF#refs/tags/nvc-}"
+          else
+            version="${{ github.event.inputs.nvc_version }}"
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      # The long step. `build.sh` also checks the binary: that it needs
+      # only the C library, that it has LLVM, and that it simulates.
+      - name: Build NVC with LLVM
+        run: |
+          set -o errexit -o nounset -o pipefail
+          docker run --rm -v "${PWD}:/work" ubuntu:20.04 \
+            /work/package/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Measure the artifacts
+        id: sums
+        run: |
+          set -o errexit -o nounset -o pipefail
+          v="${{ steps.version.outputs.version }}"
+          bin="out/nvc-${v}-linux-x86_64.tar.gz"
+          src="out/nvc-${v}-source.tar.gz"
+          echo "bin=${bin}" >> "${GITHUB_OUTPUT}"
+          echo "src=${src}" >> "${GITHUB_OUTPUT}"
+          echo "sha256=$(sha256sum "${bin}" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
+
+      # The checksum goes in the notes, so that whoever writes it into
+      # `nvc/versions.bzl` reads it from the release rather than from a
+      # local build, which makes a different tarball.
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/nvc-')
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          allowUpdates: true
+          artifacts: "${{ steps.sums.outputs.bin }},${{ steps.sums.outputs.src }}"
+          body: |
+            NVC ${{ steps.version.outputs.version }} for linux/x86-64,
+            with the LLVM code generator. It needs glibc 2.31 or newer.
+
+            `nvc-${{ steps.version.outputs.version }}-linux-x86_64.tar.gz`
+            sha256: `${{ steps.sums.outputs.sha256 }}`
+
+            Put that checksum in `nvc/versions.bzl` beside the URL, and
+            the module serves this binary.
+
+            NVC is free software under the GNU General Public License,
+            version 3; `nvc-${{ steps.version.outputs.version }}-source.tar.gz`
+            is the source this binary was built from.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nvc-linux-x86_64
+          path: |
+            ${{ steps.sums.outputs.bin }}
+            ${{ steps.sums.outputs.src }}
+
+  module:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The module's own source, which the registry points at
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: "zip"
+          filename: "bazel_toolchains_nvc-${{ github.ref_name }}.zip"
+          exclusions: "*.git* /bazel-* /out/* /cache/*"
+
+      - name: Publish the release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          allowUpdates: true
+          artifacts: "bazel_toolchains_nvc-${{ github.ref_name }}.zip"
