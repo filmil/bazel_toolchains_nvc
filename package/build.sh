@@ -8,7 +8,7 @@
 # Runs inside an Ubuntu 20.04 container, so the binary needs glibc 2.31 or
 # newer and nothing else. From the repository root:
 #
-#   docker run --rm -v "$PWD:/work" ubuntu:20.04 /work/package/build.sh VERSION
+#   docker run --rm -v "$PWD:/work" ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214 /work/package/build.sh VERSION
 #
 # VERSION is a line of `package/versions.txt`. The tarballs land in /work/out:
 #

@@ -11,3 +11,8 @@
 # 1.22.0-324ed157 is the commit of the `nvc` module 1.22.0.bcr.0 in
 # filmil/bazel-registry, which rules_nvc resolves.
 1.22.0-324ed157 324ed157094c6426bceb0db2594ea9ce07a1a1c7 18.1.8
+#
+# 1.22.0-324ed157-r2 is the same NVC and LLVM, rebuilt by the release
+# workflow that attests its build provenance. The first release keeps its
+# tag and assets; it has no attestation.
+1.22.0-324ed157-r2 324ed157094c6426bceb0db2594ea9ce07a1a1c7 18.1.8
