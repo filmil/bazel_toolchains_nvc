@@ -68,7 +68,7 @@ A release `nvc-<version>` has two assets:
 The binary is NVC at the commit `package/versions.txt` names, with LLVM from
 an official LLVM release. LLVM, the C++ runtime, zlib, zstd, libffi and
 terminfo are linked in, so it needs only the C library, glibc 2.31 or newer.
-It is built in an Ubuntu 20.04 container for that reason.
+It is built in an Ubuntu 20.04 container for that reason, pinned by digest.
 
 
 ## How a release is made
@@ -82,7 +82,26 @@ It is built in an Ubuntu 20.04 container for that reason.
    The release workflow runs `package/build.sh` in the container. The script
    checks the binary before it is published: that it needs only the C
    library, that it reports LLVM, and that it simulates a design.
-3. Copy the checksum from the release notes into `nvc/versions.bzl`.
+3. Check the build provenance of both tarballs, then put the checksum of
+   the verified binary tarball into `nvc/versions.bzl`:
+
+        gh release download nvc-<version> -R filmil/bazel_toolchains_nvc \
+            -p 'nvc-<version>-*.tar.gz'
+        for f in nvc-<version>-linux-x86_64.tar.gz nvc-<version>-source.tar.gz; do
+            gh attestation verify "$f" --repo filmil/bazel_toolchains_nvc \
+                --signer-workflow filmil/bazel_toolchains_nvc/.github/workflows/release.yml \
+                --source-ref refs/tags/nvc-<version>
+        done
+        sha256sum nvc-<version>-linux-x86_64.tar.gz
+
+   The checksum comes from the file just verified, not from the release
+   notes, which anyone with write access can edit. The release workflow
+   signs the attestations. Releases before `nvc-1.22.0-324ed157-r2` have
+   none.
+
+   Before pushing a tag, a manual run of the workflow (`gh workflow run
+   release.yml -R filmil/bazel_toolchains_nvc -f nvc_version=<version>`)
+   exercises the build and the attestation step without publishing.
 4. Release the module with a `v<version>` tag. Then publish it to
    filmil/bazel-registry by hand: a release that a workflow makes does not
    start other workflows, so the publication does not start by itself.
@@ -94,7 +113,7 @@ It is built in an Ubuntu 20.04 container for that reason.
 
 To build the same tarball locally:
 
-    docker run --rm -v "$PWD:/work" ubuntu:20.04 \
+    docker run --rm --platform linux/amd64 -v "$PWD:/work" ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214 \
         /work/package/build.sh 1.22.0-324ed157
 
 

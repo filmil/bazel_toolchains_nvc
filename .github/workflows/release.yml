@@ -24,12 +24,24 @@ on:
 permissions:
   contents: write
 
+# The build container, pinned by digest so that a retagged ubuntu:20.04
+# cannot change what builds the binary. This is the multi-platform index
+# of ubuntu:20.04 on 2026-11-25.
+env:
+  BUILD_IMAGE: ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
+
 jobs:
   nvc:
     if: startsWith(github.ref, 'refs/tags/nvc-') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    # id-token and attestations: write let the job sign build provenance
+    # attestations for the binary and the source tarball.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Say which NVC this is
         id: version
@@ -47,7 +59,7 @@ jobs:
       - name: Build NVC with LLVM
         run: |
           set -o errexit -o nounset -o pipefail
-          docker run --rm -v "${PWD}:/work" ubuntu:20.04 \
+          docker run --rm --platform linux/amd64 -v "${PWD}:/work" "${BUILD_IMAGE}" \
             /work/package/build.sh "${{ steps.version.outputs.version }}"
 
       - name: Measure the artifacts
@@ -61,12 +73,28 @@ jobs:
           echo "src=${src}" >> "${GITHUB_OUTPUT}"
           echo "sha256=$(sha256sum "${bin}" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
 
-      # The checksum goes in the notes, so that whoever writes it into
-      # `nvc/versions.bzl` reads it from the release rather than from a
-      # local build, which makes a different tarball.
+      # A signed statement that this workflow, at this commit, built these
+      # two files. Check it with
+      #   gh attestation verify <file> --repo filmil/bazel_toolchains_nvc \
+      #     --signer-workflow filmil/bazel_toolchains_nvc/.github/workflows/release.yml \
+      #     --source-ref refs/tags/nvc-<version>
+      # before pinning a new binary in `nvc/versions.bzl`. A manual run
+      # attests too, so that a dry run exercises this step before a tag is
+      # pushed. Its attestations name a branch, not an `nvc-` tag, so the
+      # check above rejects them.
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ steps.sums.outputs.bin }}
+            ${{ steps.sums.outputs.src }}
+
+      # The notes give the checksum for reference. What goes into
+      # `nvc/versions.bzl` is the checksum of the downloaded tarball, after
+      # its attestation checks out (README.md, "How a release is made").
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/nvc-')
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
           tag: ${{ github.ref_name }}
           allowUpdates: true
@@ -78,14 +106,18 @@ jobs:
             `nvc-${{ steps.version.outputs.version }}-linux-x86_64.tar.gz`
             sha256: `${{ steps.sums.outputs.sha256 }}`
 
-            Put that checksum in `nvc/versions.bzl` beside the URL, and
-            the module serves this binary.
+            The build provenance of both tarballs is attested. Check each
+            with `gh attestation verify <file> --repo filmil/bazel_toolchains_nvc --signer-workflow filmil/bazel_toolchains_nvc/.github/workflows/release.yml --source-ref refs/tags/nvc-${{ steps.version.outputs.version }}`.
+
+            Put the `sha256sum` of the verified binary tarball in
+            `nvc/versions.bzl` beside the URL, and the module serves this
+            binary.
 
             NVC is free software under the GNU General Public License,
             version 3; `nvc-${{ steps.version.outputs.version }}-source.tar.gz`
             is the source this binary was built from.
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nvc-linux-x86_64
           path: |
@@ -96,17 +128,17 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: The module's own source, which the registry points at
-        uses: thedoctor0/zip-release@0.7.5
+        uses: thedoctor0/zip-release@7fddfdd07cadb5b8c6c0dbcdcec17f8cd7784b80 # 0.7.5
         with:
           type: "zip"
           filename: "bazel_toolchains_nvc-${{ github.ref_name }}.zip"
           exclusions: "*.git* /bazel-* /out/* /cache/*"
 
       - name: Publish the release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
           tag: ${{ github.ref_name }}
           allowUpdates: true
