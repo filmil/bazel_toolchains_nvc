@@ -8,7 +8,7 @@ below the override are also all that a consumer writes.
 
 module(name = "integration")
 
-bazel_dep(name = "bazel_toolchains_nvc", version = "0.1.0")
+bazel_dep(name = "bazel_toolchains_nvc", version = "0.2.0")
 local_path_override(
     module_name = "bazel_toolchains_nvc",
     path = "..",
